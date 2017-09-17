@@ -30,6 +30,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -167,6 +168,20 @@ func (c *Client) dialSetupOpts(endpoint string, dopts ...grpc.DialOption) (opts 
 	if c.cfg.DialTimeout > 0 {
 		opts = []grpc.DialOption{grpc.WithTimeout(c.cfg.DialTimeout)}
 	}
+
+	params := keepalive.ClientParameters{
+		Time:    20 * time.Second,
+		Timeout: 5 * time.Second,
+	}
+	if c.cfg.DialKeepAliveTime > 0 {
+		params.Time = c.cfg.DialKeepAliveTime
+		// Only relevant when KeepAliveTime is non-zero
+		if c.cfg.DialKeepAliveTimeout > 0 {
+			params.Timeout = c.cfg.DialKeepAliveTimeout
+		}
+		opts = append(opts, grpc.WithKeepaliveParams(params))
+	}
+
 	opts = append(opts, dopts...)
 
 	// grpc issues TLS cert checks using the string passed into dial so
