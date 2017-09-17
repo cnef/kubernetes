@@ -1,0 +1,37 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "4VVM5droT9AyKKBaYSZhLHS7m/M=",
+			"path": "github.com/coreos/etcd/clientv3",
+			"revision": "20490caaf0dcd96bb4a95e40625559def8ef5b04",
+			"revisionTime": "2017-03-27T17:20:28Z"
+		},
+		{
+			"checksumSHA1": "W4hPmK/Sv1tdsM4Vm/Fqy6MoppY=",
+			"path": "github.com/grpc-ecosystem/go-grpc-prometheus",
+			"revision": "0dafe0d496ea71181bf2dd039e7e3f44b6bd11a7",
+			"revisionTime": "2017-08-26T09:06:48Z"
+		},
+		{
+			"checksumSHA1": "gTnZiff/sx65gOX7HR6YCLV2OdA=",
+			"path": "golang.org/x/net/http2",
+			"revision": "8351a756f30f1297fe94bbf4b767ec589c6ea6d0",
+			"revisionTime": "2017-09-15T01:39:56Z"
+		},
+		{
+			"checksumSHA1": "UOJDYDq9dPMJ3Re3Dc9vvbi+UI0=",
+			"path": "golang.org/x/net/lex/httplex",
+			"revision": "8351a756f30f1297fe94bbf4b767ec589c6ea6d0",
+			"revisionTime": "2017-09-15T01:39:56Z"
+		},
+		{
+			"checksumSHA1": "zmYEB8oxXb0QlexFeQm4vjiPN48=",
+			"path": "google.golang.org/grpc",
+			"revision": "d2e1b51f33ff8c5e4a15560ff049d200e83726c5",
+			"revisionTime": "2017-04-28T21:33:45Z"
+		}
+	],
+	"rootPath": "k8s.io/kubernetes"
+}

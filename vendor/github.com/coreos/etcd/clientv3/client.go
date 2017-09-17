@@ -112,6 +112,28 @@ func (cred authTokenCredential) GetRequestMetadata(ctx context.Context, s ...str
 	}, nil
 }
 
+func parseEndpoint(endpoint string) (proto string, host string, scheme string) {
+	proto = "tcp"
+	host = endpoint
+	url, uerr := url.Parse(endpoint)
+	if uerr != nil || !strings.Contains(endpoint, "://") {
+		return
+	}
+	scheme = url.Scheme
+
+	// strip scheme:// prefix since grpc dials by host
+	host = url.Host
+	switch url.Scheme {
+	case "http", "https":
+	case "unix", "unixs":
+		proto = "unix"
+		host = url.Host + url.Path
+	default:
+		proto, host = "", ""
+	}
+	return
+}
+
 func (c *Client) dialTarget(endpoint string) (proto string, host string, creds *credentials.TransportCredentials) {
 	proto = "tcp"
 	host = endpoint
