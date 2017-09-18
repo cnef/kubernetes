@@ -179,9 +179,8 @@ func (c *Client) dialSetupOpts(endpoint string, dopts ...grpc.DialOption) (opts 
 		if c.cfg.DialKeepAliveTimeout > 0 {
 			params.Timeout = c.cfg.DialKeepAliveTimeout
 		}
-		opts = append(opts, grpc.WithKeepaliveParams(params))
 	}
-
+	opts = append(opts, grpc.WithKeepaliveParams(params))
 	opts = append(opts, dopts...)
 
 	// grpc issues TLS cert checks using the string passed into dial so
