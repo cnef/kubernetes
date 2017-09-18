@@ -87,7 +87,7 @@ func (m *containerManager) doWork() {
 	}
 	version, err := utilversion.ParseGeneric(v.APIVersion)
 	if err != nil {
-		glog.Errorf("Unable to parse docker version %q: %v", v.Version, err)
+		glog.Errorf("Unable to parse docker version %q: %v", v.APIVersion, err)
 		return
 	}
 	// EnsureDockerInConatiner does two things.

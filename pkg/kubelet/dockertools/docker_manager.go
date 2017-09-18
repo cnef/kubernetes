@@ -1095,7 +1095,7 @@ func (dm *DockerManager) pluginDisablesDockerNetworking() bool {
 
 // newDockerVersion returns a semantically versioned docker version value
 func newDockerVersion(version string) (*utilversion.Version, error) {
-	return utilversion.ParseSemantic(version)
+	return utilversion.ParseGeneric(version)
 }
 
 // apiVersion implements kubecontainer.Version interface by implementing
@@ -1127,7 +1127,7 @@ func (dm *DockerManager) Version() (kubecontainer.Version, error) {
 	}
 	version, err := newDockerVersion(v.APIVersion)
 	if err != nil {
-		return nil, fmt.Errorf("docker: failed to parse docker version %q: %v", v.Version, err)
+		return nil, fmt.Errorf("docker: failed to parse docker version %q: %v", v.APIVersion, err)
 	}
 	return version, nil
 }
