@@ -57,6 +57,16 @@ func parse(str string, semver bool) (*Version, error) {
 	}
 	for i, comp := range components {
 		if (i == 0 || semver) && strings.HasPrefix(comp, "0") && comp != "0" {
+			var prefixZeroLen = func() int {
+				for x := 0; x < len(comp); i++ {
+					if comp[x] != '0' {
+						return x
+					}
+					x++
+				}
+				return 0
+			}
+			comp = comp[prefixZeroLen():]
 			return nil, fmt.Errorf("illegal zero-prefixed version component %q in %q", comp, str)
 		}
 		num, err := strconv.ParseUint(comp, 10, 0)
