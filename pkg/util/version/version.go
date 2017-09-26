@@ -67,7 +67,6 @@ func parse(str string, semver bool) (*Version, error) {
 				return 0
 			}
 			comp = comp[prefixZeroLen():]
-			return nil, fmt.Errorf("illegal zero-prefixed version component %q in %q", comp, str)
 		}
 		num, err := strconv.ParseUint(comp, 10, 0)
 		if err != nil {
