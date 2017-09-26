@@ -56,9 +56,6 @@ func parse(str string, semver bool) (*Version, error) {
 		semver:     semver,
 	}
 	for i, comp := range components {
-		if (i == 0 || semver) && strings.HasPrefix(comp, "0") && comp != "0" {
-			return nil, fmt.Errorf("illegal zero-prefixed version component %q in %q", comp, str)
-		}
 		num, err := strconv.ParseUint(comp, 10, 0)
 		if err != nil {
 			return nil, fmt.Errorf("illegal non-numeric version component %q in %q: %v", comp, str, err)
@@ -72,14 +69,15 @@ func parse(str string, semver bool) (*Version, error) {
 			return nil, fmt.Errorf("could not parse pre-release/metadata (%s) in version %q", extra, str)
 		}
 		v.preRelease, v.buildMetadata = extraParts[1], extraParts[2]
-
-		for _, comp := range strings.Split(v.preRelease, ".") {
-			if _, err := strconv.ParseUint(comp, 10, 0); err == nil {
+		components := strings.Split(v.preRelease, ".")
+		for i, comp := range components {
+			if x, err := strconv.ParseUint(comp, 10, 0); err == nil {
 				if strings.HasPrefix(comp, "0") && comp != "0" {
-					return nil, fmt.Errorf("illegal zero-prefixed version component %q in %q", comp, str)
+					components[i] = fmt.Sprintf("%d", x)
 				}
 			}
 		}
+		v.preRelease = strings.Join(components, ".")
 	}
 
 	return v, nil
