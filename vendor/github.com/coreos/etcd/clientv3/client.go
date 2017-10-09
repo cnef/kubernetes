@@ -170,8 +170,9 @@ func (c *Client) dialSetupOpts(endpoint string, dopts ...grpc.DialOption) (opts 
 	}
 
 	params := keepalive.ClientParameters{
-		Time:    10 * time.Second,
-		Timeout: 5 * time.Second,
+		Time:                10 * time.Second,
+		Timeout:             5 * time.Second,
+		PermitWithoutStream: true,
 	}
 	if c.cfg.DialKeepAliveTime > 0 {
 		params.Time = c.cfg.DialKeepAliveTime
