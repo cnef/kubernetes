@@ -42,7 +42,6 @@ package proto
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"sort"
@@ -908,7 +907,7 @@ var (
 func RegisterType(x Message, name string) {
 	if _, ok := protoTypes[name]; ok {
 		// TODO: Some day, make this a panic.
-		log.Printf("proto: duplicate proto type registered: %s", name)
+		//log.Printf("proto: duplicate proto type registered: %s", name)
 		return
 	}
 	t := reflect.TypeOf(x)
