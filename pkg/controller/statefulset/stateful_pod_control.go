@@ -50,6 +50,8 @@ type StatefulPodControlInterface interface {
 	DeleteStatefulPod(set *apps.StatefulSet, pod *v1.Pod) error
 }
 
+var GlobalRealStatefulPodControl *realStatefulPodControl
+
 func NewRealStatefulPodControl(
 	client clientset.Interface,
 	setLister appslisters.StatefulSetLister,
@@ -57,7 +59,8 @@ func NewRealStatefulPodControl(
 	pvcLister corelisters.PersistentVolumeClaimLister,
 	recorder record.EventRecorder,
 ) StatefulPodControlInterface {
-	return &realStatefulPodControl{client, setLister, podLister, pvcLister, recorder}
+	GlobalRealStatefulPodControl = &realStatefulPodControl{client, setLister, podLister, pvcLister, recorder}
+	return GlobalRealStatefulPodControl
 }
 
 // realStatefulPodControl implements StatefulPodControlInterface using a clientset.Interface to communicate with the
