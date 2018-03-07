@@ -20,8 +20,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"regexp"
+	"sort"
 	"strconv"
+	"strings"
 
 	apps "k8s.io/api/apps/v1beta1"
 	"k8s.io/api/core/v1"
@@ -53,6 +56,19 @@ func (o overlappingStatefulSets) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
 func (o overlappingStatefulSets) Less(i, j int) bool {
 	if o[i].CreationTimestamp.Equal(&o[j].CreationTimestamp) {
 		return o[i].Name < o[j].Name
+	}
+	return o[i].CreationTimestamp.Before(&o[j].CreationTimestamp)
+}
+
+type ascendingPVCs []*v1.PersistentVolumeClaim
+
+func (o ascendingPVCs) Len() int { return len(o) }
+
+func (o ascendingPVCs) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+
+func (o ascendingPVCs) Less(i, j int) bool {
+	if o[i].CreationTimestamp.Equal(&o[j].CreationTimestamp) {
+		return (strings.Compare(o[i].Name, o[j].Name) < 0)
 	}
 	return o[i].CreationTimestamp.Before(&o[j].CreationTimestamp)
 }
@@ -98,7 +114,22 @@ func getPodName(set *apps.StatefulSet, ordinal int) string {
 // must be a PersistentVolumeClaim from set's VolumeClaims template.
 func getPersistentVolumeClaimName(set *apps.StatefulSet, claim *v1.PersistentVolumeClaim, ordinal int) string {
 	// NOTE: This name format is used by the heuristics for zone spreading in ChooseZoneForVolume
-	return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
+	// return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
+	if len(claim.GetLabels()) == 0 {
+		return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
+	}
+	pvcs, errPvcs := GlobalRealStatefulPodControl.pvcLister.PersistentVolumeClaims(set.Namespace).List(labels.SelectorFromSet(claim.GetLabels()))
+
+	if errPvcs != nil {
+		return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
+	}
+
+	sort.Sort(ascendingPVCs(pvcs))
+
+	if len(pvcs)-1 < ordinal {
+		return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
+	}
+	return pvcs[ordinal].Name
 }
 
 // isMemberOf tests if pod is a member of set.
