@@ -119,6 +119,11 @@ func getPersistentVolumeClaimName(set *apps.StatefulSet, claim *v1.PersistentVol
 	if errPvcs != nil {
 		return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
 	}
+
+	if pvcs == nil {
+		return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
+	}
+
 	sort.Sort(ascendingPVCs(pvcs))
 
 	if len(pvcs)-1 < ordinal {
