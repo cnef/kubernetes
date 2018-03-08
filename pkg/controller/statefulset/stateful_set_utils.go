@@ -115,12 +115,12 @@ func getPodName(set *apps.StatefulSet, ordinal int) string {
 func getPersistentVolumeClaimName(set *apps.StatefulSet, claim *v1.PersistentVolumeClaim, ordinal int) string {
 	// NOTE: This name format is used by the heuristics for zone spreading in ChooseZoneForVolume
 	// return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
-	pvcs, errPvcs := GlobalRealStatefulPodControl.pvcLister.PersistentVolumeClaims(set.Namespace).List(labels.SelectorFromSet(claim.GetLabels()))
-	if errPvcs != nil {
+	if len(claim.GetLabels()) == 0 {
 		return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
 	}
+	pvcs, errPvcs := GlobalRealStatefulPodControl.pvcLister.PersistentVolumeClaims(set.Namespace).List(labels.SelectorFromSet(claim.GetLabels()))
 
-	if pvcs == nil {
+	if errPvcs != nil {
 		return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
 	}
 
