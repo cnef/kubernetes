@@ -35,7 +35,7 @@ import (
 
 	clientv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	//utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
@@ -171,36 +171,27 @@ type IPGetter interface {
 	NodeIPs() ([]net.IP, error)
 }
 
-type realIPGetter struct{}
+type realIPGetter struct {
+	nl NetLinkHandle
+}
 
 func (r *realIPGetter) NodeIPs() (ips []net.IP, err error) {
-	interfaces, err := net.Interfaces()
+	//interfaces, err := net.Interfaces()
+	allAddress, err := r.nl.GetLocalAddresses("")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error listing LOCAL type addresses from host, error: %v", err)
 	}
-	for i := range interfaces {
-		name := interfaces[i].Name
-		// We assume node ip bind to eth{x}
-		if !strings.HasPrefix(name, "eth") {
-			continue
-		}
-		intf, err := net.InterfaceByName(name)
-		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("Failed to get interface by name: %s, error: %v", name, err))
-			continue
-		}
-		addrs, err := intf.Addrs()
-		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("Failed to get addresses from interface: %s, error: %v", name, err))
-			continue
-		}
-		for _, a := range addrs {
-			if ipnet, ok := a.(*net.IPNet); ok {
-				ips = append(ips, ipnet.IP)
-			}
-		}
+	dummyAddress, err := r.nl.GetLocalAddresses(DefaultDummyDevice)
+	if err != nil {
+		return nil, fmt.Errorf("error listing LOCAL type addresses from device: %s, error: %v", DefaultDummyDevice, err)
 	}
-	return
+	// exclude ip address from dummy interface created by IPVS proxier - they are all Cluster IPs.
+	nodeAddress := allAddress.Difference(dummyAddress)
+	// translate ip string to IP
+	for _, ipStr := range nodeAddress.UnsortedList() {
+		ips = append(ips, net.ParseIP(ipStr))
+	}
+	return ips, nil
 }
 
 // Proxier implements ProxyProvider
@@ -274,27 +265,28 @@ func NewProxier(ipt utiliptables.Interface,
 	glog.V(2).Infof("nodeIP: %v, isIPv6: %v", nodeIP, isIPv6)
 
 	proxier := &Proxier{
-		portsMap:           make(map[utilproxy.LocalPort]utilproxy.Closeable),
-		serviceMap:         make(proxyServiceMap),
-		serviceChanges:     newServiceChangeMap(),
-		endpointsMap:       make(proxyEndpointsMap),
-		endpointsChanges:   newEndpointsChangeMap(hostname),
-		syncPeriod:         syncPeriod,
-		minSyncPeriod:      minSyncPeriod,
-		iptables:           ipt,
-		masqueradeAll:      masqueradeAll,
-		masqueradeMark:     masqueradeMark,
-		exec:               exec,
-		clusterCIDR:        clusterCIDR,
-		hostname:           hostname,
-		nodeIP:             nodeIP,
-		portMapper:         &listenPortOpener{},
-		recorder:           recorder,
-		healthChecker:      healthChecker,
-		healthzServer:      healthzServer,
-		ipvs:               ipvs,
-		ipvsScheduler:      scheduler,
-		ipGetter:           &realIPGetter{},
+		portsMap:         make(map[utilproxy.LocalPort]utilproxy.Closeable),
+		serviceMap:       make(proxyServiceMap),
+		serviceChanges:   newServiceChangeMap(),
+		endpointsMap:     make(proxyEndpointsMap),
+		endpointsChanges: newEndpointsChangeMap(hostname),
+		syncPeriod:       syncPeriod,
+		minSyncPeriod:    minSyncPeriod,
+		iptables:         ipt,
+		masqueradeAll:    masqueradeAll,
+		masqueradeMark:   masqueradeMark,
+		exec:             exec,
+		clusterCIDR:      clusterCIDR,
+		hostname:         hostname,
+		nodeIP:           nodeIP,
+		portMapper:       &listenPortOpener{},
+		recorder:         recorder,
+		healthChecker:    healthChecker,
+		healthzServer:    healthzServer,
+		ipvs:             ipvs,
+		ipvsScheduler:    scheduler,
+		//ipGetter:           &realIPGetter{},
+		ipGetter:           &realIPGetter{nl: NewNetLinkHandle()},
 		iptablesData:       bytes.NewBuffer(nil),
 		natChains:          bytes.NewBuffer(nil),
 		natRules:           bytes.NewBuffer(nil),
