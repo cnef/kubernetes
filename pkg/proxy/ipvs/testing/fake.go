@@ -16,13 +16,24 @@ limitations under the License.
 
 package testing
 
+import (
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+)
+
 //FakeNetlinkHandle mock implementation of proxy NetlinkHandle
 type FakeNetlinkHandle struct {
+	localAddresses map[string][]string
 }
 
 //NewFakeNetlinkHandle will create a new FakeNetlinkHandle
 func NewFakeNetlinkHandle() *FakeNetlinkHandle {
-	return &FakeNetlinkHandle{}
+	//return &FakeNetlinkHandle{}
+	fake := &FakeNetlinkHandle{
+		localAddresses: make(map[string][]string),
+	}
+	return fake
 }
 
 //EnsureAddressBind is a mock implementation
@@ -42,5 +53,37 @@ func (h *FakeNetlinkHandle) EnsureDummyDevice(devName string) (bool, error) {
 
 // DeleteDummyDevice is a mock implementation
 func (h *FakeNetlinkHandle) DeleteDummyDevice(devName string) error {
+	return nil
+}
+
+func (h *FakeNetlinkHandle) GetLocalAddresses(filterDev string) (sets.String, error) {
+	res := sets.NewString()
+	if len(filterDev) != 0 {
+		// list all addresses from a given network interface.
+		for _, addr := range h.localAddresses[filterDev] {
+			res.Insert(addr)
+		}
+		return res, nil
+	}
+	// If filterDev is not given, will list all addresses from all available network interface.
+	for linkName := range h.localAddresses {
+		// list all addresses from a given network interface.
+		for _, addr := range h.localAddresses[linkName] {
+			res.Insert(addr)
+		}
+	}
+	return res, nil
+}
+
+// SetLocalAddresses set IP addresses to the given interface device.  It's not part of interface.
+func (h *FakeNetlinkHandle) SetLocalAddresses(dev string, ips ...string) error {
+	if h.localAddresses == nil {
+		h.localAddresses = make(map[string][]string)
+	}
+	if len(dev) == 0 {
+		return fmt.Errorf("device name can't be empty")
+	}
+	h.localAddresses[dev] = make([]string, 0)
+	h.localAddresses[dev] = append(h.localAddresses[dev], ips...)
 	return nil
 }
