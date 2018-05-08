@@ -239,7 +239,7 @@ func toBackendDestination(rs *RealServer) (*ipvs.Destination, error) {
 		Address:         rs.Address,
 		Port:            rs.Port,
 		Weight:          rs.Weight,
-		ConnectionFlags: rs.Flags,
+		ConnectionFlags: uint32(rs.Flags),
 	}, nil
 }
 
