@@ -388,11 +388,13 @@ func newServiceInfo(svcPortName proxy.ServicePortName, port *api.ServicePort, se
 		onlyNodeLocalEndpoints:   onlyNodeLocalEndpoints,
 	}
 	if service.Annotations != nil {
-		if len(service.Annotations["ekos.ghostcloud.cn/lb-vips"]) != 0 {
+		if len(service.Annotations["ekos.ghostcloud.cn/lb-vips"]) > 0 {
 			info.ghostcloudLBVIPs = strings.Split(service.Annotations["ekos.ghostcloud.cn/lb-vips"], ",")
+			glog.V(4).Info("detect ghostcloud load banlancer vips: ", info.ghostcloudLBVIPs)
 		}
-		if len(service.Annotations["ekos.ghostcloud.cn/lb-hosts-ips"]) != 0 {
-			info.ghostcloudLBVIPs = strings.Split(service.Annotations["ekos.ghostcloud.cn/lb-hosts-ips"], ",")
+		if len(service.Annotations["ekos.ghostcloud.cn/lb-hosts-ips"]) > 0 {
+			info.ghostcloudLBHostsIPs = strings.Split(service.Annotations["ekos.ghostcloud.cn/lb-hosts-ips"], ",")
+			glog.V(4).Info("detect ghostcloud load banlancer hosts ips: ", info.ghostcloudLBVIPs)
 		}
 	}
 
@@ -1172,12 +1174,11 @@ func (proxier *Proxier) syncProxyRules() {
 			// and need to bind externalIP to dummy interface
 			var bindAddr = false
 			for _, vip := range svcInfo.ghostcloudLBVIPs {
-				if vip != externalIP {
-					continue
+				if vip == externalIP {
+					bindAddr = true
+					proxier.externalIPGhostcloudSet.activeEntries.Insert(entry.String())
+					break
 				}
-				bindAddr = true
-				proxier.externalIPGhostcloudSet.activeEntries.Insert(entry.String())
-				break
 			}
 
 			// ipvs call
@@ -1192,7 +1193,6 @@ func (proxier *Proxier) syncProxyRules() {
 				serv.Timeout = uint32(svcInfo.stickyMaxAgeSeconds)
 			}
 			// There is check when externalIP is ghostcloud loadbanlancer VIP, then need to bind externalIP to dummy interface, default set parameter `bindAddr` to `false`.
-			glog.V(3).Info("bind externalIP to dummy interface:", bindAddr)
 			if err := proxier.syncService(svcNameString, serv, bindAddr); err == nil {
 				activeIPVSServices[serv.String()] = true
 				if err := proxier.syncEndpoint(svcName, svcInfo.onlyNodeLocalEndpoints, serv); err != nil {
@@ -1629,7 +1629,6 @@ func (proxier *Proxier) syncEndpoint(svcPortName proxy.ServicePortName, onlyNode
 	}
 	if onlyNodeLocalEndpoints {
 		vip := vs.Address.String()
-		glog.V(3).Infof("check vip: %s is ghostcloud load banlancer ip.", vip)
 		if svcInfo, ok := proxier.serviceMap[svcPortName]; ok {
 			if ipIN(svcInfo.ghostcloudLBVIPs, vip) {
 				for _, ip := range svcInfo.ghostcloudLBHostsIPs {
@@ -1645,7 +1644,6 @@ func (proxier *Proxier) syncEndpoint(svcPortName proxy.ServicePortName, onlyNode
 		}
 	}
 	for _, des := range lbHosts {
-		glog.V(3).Infof("ghostcloud load banlancer real server host endpoint: %s", des)
 		newEndpoints.Insert(des)
 	}
 	//end ghostcloud load banlancer extension code
@@ -1668,6 +1666,7 @@ func (proxier *Proxier) syncEndpoint(svcPortName proxy.ServicePortName, onlyNode
 				Port:    uint16(portNum),
 				Weight:  1,
 			}
+			// support IPVS dr/tun
 			if ipIN(lbHosts, ep) {
 				newDest.Flags |= utilipvs.DstFlagFwdTunnel
 			}
