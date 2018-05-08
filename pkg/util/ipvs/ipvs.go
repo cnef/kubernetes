@@ -61,6 +61,13 @@ const (
 	FlagPersistent = 0x1
 	// FlagHashed specify IPVS service hash flag
 	FlagHashed = 0x2
+
+	// DstFlagFwdMasq specify IPVS Forward traffic to Real server by NAT
+	DstFlagFwdMasq = 0x0
+	// DstFlagFwdTunnel specify IPVS Forward traffic to Real server by IPIP tunnel
+	DstFlagFwdTunnel = 0x2
+	// DstFlagFwdRoute specify IPVS Forward traffic to Real server by IP Route
+	DstFlagFwdRoute = 0x3
 )
 
 // Equal check the equality of virtual server.
@@ -83,6 +90,7 @@ type RealServer struct {
 	Address net.IP
 	Port    uint16
 	Weight  int
+	Flags   ServiceFlags
 }
 
 func (rs *RealServer) String() string {

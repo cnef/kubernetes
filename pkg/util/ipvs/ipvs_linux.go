@@ -236,9 +236,10 @@ func toBackendDestination(rs *RealServer) (*ipvs.Destination, error) {
 		return nil, errors.New("real server should not be empty")
 	}
 	return &ipvs.Destination{
-		Address: rs.Address,
-		Port:    rs.Port,
-		Weight:  rs.Weight,
+		Address:         rs.Address,
+		Port:            rs.Port,
+		Weight:          rs.Weight,
+		ConnectionFlags: rs.Flags,
 	}, nil
 }
 
