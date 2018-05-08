@@ -154,6 +154,8 @@ type Proxier struct {
 	nodePortSetUDP *IPSet
 	// externalIPSet is the hash:ip,port type ipset where stores all service ExternalIP:Port
 	externalIPSet *IPSet
+	// externalIPGhostcloudSet is the hash:ip,port type ipset where stores all ghostcloud service ExternalIP:Port
+	externalIPGhostcloudSet *IPSet
 	// lbIngressSet is the hash:ip,port type ipset where stores all service load balancer ingress IP:Port.
 	lbIngressSet *IPSet
 	// lbMasqSet is the hash:ip,port type ipset where stores all service load balancer ingress IP:Port which needs masquerade.
@@ -286,21 +288,22 @@ func NewProxier(ipt utiliptables.Interface,
 		ipvs:             ipvs,
 		ipvsScheduler:    scheduler,
 		//ipGetter:           &realIPGetter{},
-		ipGetter:           &realIPGetter{nl: NewNetLinkHandle()},
-		iptablesData:       bytes.NewBuffer(nil),
-		natChains:          bytes.NewBuffer(nil),
-		natRules:           bytes.NewBuffer(nil),
-		netlinkHandle:      NewNetLinkHandle(),
-		ipset:              ipset,
-		loopbackSet:        NewIPSet(ipset, KubeLoopBackIPSet, utilipset.HashIPPortIP, isIPv6),
-		clusterIPSet:       NewIPSet(ipset, KubeClusterIPSet, utilipset.HashIPPort, isIPv6),
-		externalIPSet:      NewIPSet(ipset, KubeExternalIPSet, utilipset.HashIPPort, isIPv6),
-		lbIngressSet:       NewIPSet(ipset, KubeLoadBalancerSet, utilipset.HashIPPort, isIPv6),
-		lbMasqSet:          NewIPSet(ipset, KubeLoadBalancerMasqSet, utilipset.HashIPPort, isIPv6),
-		lbWhiteListIPSet:   NewIPSet(ipset, KubeLoadBalancerSourceIPSet, utilipset.HashIPPortIP, isIPv6),
-		lbWhiteListCIDRSet: NewIPSet(ipset, KubeLoadBalancerSourceCIDRSet, utilipset.HashIPPortNet, isIPv6),
-		nodePortSetTCP:     NewIPSet(ipset, KubeNodePortSetTCP, utilipset.BitmapPort, false),
-		nodePortSetUDP:     NewIPSet(ipset, KubeNodePortSetUDP, utilipset.BitmapPort, false),
+		ipGetter:                &realIPGetter{nl: NewNetLinkHandle()},
+		iptablesData:            bytes.NewBuffer(nil),
+		natChains:               bytes.NewBuffer(nil),
+		natRules:                bytes.NewBuffer(nil),
+		netlinkHandle:           NewNetLinkHandle(),
+		ipset:                   ipset,
+		loopbackSet:             NewIPSet(ipset, KubeLoopBackIPSet, utilipset.HashIPPortIP, isIPv6),
+		clusterIPSet:            NewIPSet(ipset, KubeClusterIPSet, utilipset.HashIPPort, isIPv6),
+		externalIPSet:           NewIPSet(ipset, KubeExternalIPSet, utilipset.HashIPPort, isIPv6),
+		externalIPGhostcloudSet: NewIPSet(ipset, KubeExternalIPGhostCloudSet, utilipset.HashIPPort, isIPv6),
+		lbIngressSet:            NewIPSet(ipset, KubeLoadBalancerSet, utilipset.HashIPPort, isIPv6),
+		lbMasqSet:               NewIPSet(ipset, KubeLoadBalancerMasqSet, utilipset.HashIPPort, isIPv6),
+		lbWhiteListIPSet:        NewIPSet(ipset, KubeLoadBalancerSourceIPSet, utilipset.HashIPPortIP, isIPv6),
+		lbWhiteListCIDRSet:      NewIPSet(ipset, KubeLoadBalancerSourceCIDRSet, utilipset.HashIPPortNet, isIPv6),
+		nodePortSetTCP:          NewIPSet(ipset, KubeNodePortSetTCP, utilipset.BitmapPort, false),
+		nodePortSetUDP:          NewIPSet(ipset, KubeNodePortSetUDP, utilipset.BitmapPort, false),
 	}
 	burstSyncs := 2
 	glog.V(3).Infof("minSyncPeriod: %v, syncPeriod: %v, burstSyncs: %d", minSyncPeriod, syncPeriod, burstSyncs)
@@ -320,6 +323,7 @@ type serviceInfo struct {
 	sessionAffinityType      api.ServiceAffinity
 	stickyMaxAgeSeconds      int
 	externalIPs              []string
+	ghostcloudIPs            []string
 	loadBalancerSourceRanges []string
 	onlyNodeLocalEndpoints   bool
 	healthCheckNodePort      int
@@ -377,8 +381,12 @@ func newServiceInfo(svcPortName proxy.ServicePortName, port *api.ServicePort, se
 		sessionAffinityType:      service.Spec.SessionAffinity,
 		stickyMaxAgeSeconds:      stickyMaxAgeSeconds,
 		externalIPs:              make([]string, len(service.Spec.ExternalIPs)),
+		ghostcloudIPs:            []string{},
 		loadBalancerSourceRanges: make([]string, len(service.Spec.LoadBalancerSourceRanges)),
 		onlyNodeLocalEndpoints:   onlyNodeLocalEndpoints,
+	}
+	if len(service.Annotations["ekos.ghostcloud.cn/vips"]) != 0 {
+		info.ghostcloudIPs = strings.Split(service.Annotations["ekos.ghostcloud.cn/vips"], ",")
 	}
 
 	copy(info.loadBalancerSourceRanges, service.Spec.LoadBalancerSourceRanges)
@@ -812,7 +820,7 @@ func CleanupLeftovers(ipvs utilipvs.Interface, ipt utiliptables.Interface, ipset
 	// Destroy ip sets created by ipvs Proxier.  We should call it after cleaning up
 	// iptables since we can NOT delete ip set which is still referenced by iptables.
 	ipSetsToDestroy := []string{KubeLoopBackIPSet, KubeClusterIPSet, KubeLoadBalancerSet, KubeNodePortSetTCP, KubeNodePortSetUDP,
-		KubeExternalIPSet, KubeLoadBalancerSourceIPSet, KubeLoadBalancerSourceCIDRSet, KubeLoadBalancerMasqSet}
+		KubeExternalIPSet, KubeExternalIPGhostCloudSet, KubeLoadBalancerSourceIPSet, KubeLoadBalancerSourceCIDRSet, KubeLoadBalancerMasqSet}
 	for _, set := range ipSetsToDestroy {
 		err = ipset.DestroySet(set)
 		if err != nil {
@@ -1009,7 +1017,7 @@ func (proxier *Proxier) syncProxyRules() {
 	}
 
 	// make sure ip sets exists in the system.
-	ipSets := []*IPSet{proxier.loopbackSet, proxier.clusterIPSet, proxier.externalIPSet, proxier.nodePortSetUDP, proxier.nodePortSetTCP,
+	ipSets := []*IPSet{proxier.loopbackSet, proxier.clusterIPSet, proxier.externalIPSet, proxier.externalIPGhostcloudSet, proxier.nodePortSetUDP, proxier.nodePortSetTCP,
 		proxier.lbIngressSet, proxier.lbMasqSet, proxier.lbWhiteListCIDRSet, proxier.lbWhiteListIPSet}
 	if err := ensureIPSets(ipSets...); err != nil {
 		return
@@ -1153,6 +1161,14 @@ func (proxier *Proxier) syncProxyRules() {
 			}
 			// We have to SNAT packets to external IPs.
 			proxier.externalIPSet.activeEntries.Insert(entry.String())
+			// ghostcloud externalIP insert external ghostcloud IPs
+			for _, ghostcloudvip := range svcInfo.ghostcloudIPs {
+				if ghostcloudvip != externalIP {
+					continue
+				}
+				proxier.externalIPGhostcloudSet.activeEntries.Insert(entry.String())
+				break
+			}
 
 			// ipvs call
 			serv := &utilipvs.VirtualServer{
@@ -1333,7 +1349,7 @@ func (proxier *Proxier) syncProxyRules() {
 
 	// sync ipset entries
 	ipsetsToSync := []*IPSet{proxier.loopbackSet, proxier.clusterIPSet, proxier.lbIngressSet, proxier.lbMasqSet, proxier.nodePortSetTCP,
-		proxier.nodePortSetUDP, proxier.externalIPSet, proxier.lbWhiteListIPSet, proxier.lbWhiteListCIDRSet}
+		proxier.nodePortSetUDP, proxier.externalIPSet, proxier.externalIPGhostcloudSet, proxier.lbWhiteListIPSet, proxier.lbWhiteListCIDRSet}
 	for i := range ipsetsToSync {
 		ipsetsToSync[i].syncIPSetEntries()
 	}
@@ -1385,6 +1401,14 @@ func (proxier *Proxier) syncProxyRules() {
 		// Allow traffic bound for external IPs that happen to be recognized as local IPs to stay local.
 		// This covers cases like GCE load-balancers which get added to the local routing table.
 		writeLine(proxier.natRules, append(dstLocalOnlyArgs, "-j", "ACCEPT")...)
+	}
+	if !proxier.externalIPGhostcloudSet.isEmpty() {
+		args = append(args[:0],
+			"-I", string(kubeServicesChain),
+			"-m", "set", "--match-set", proxier.externalIPSet.Name,
+			"dst,dst",
+		)
+		writeLine(proxier.natRules, append(args, "-j", "ACCEPT")...)
 	}
 	if !proxier.lbMasqSet.isEmpty() {
 		// Build masquerade rules for packets which cross node visit load balancer ingress IPs.

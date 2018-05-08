@@ -37,6 +37,9 @@ const (
 	// KubeExternalIPSet is used to store service external ip + port for masquerade and filter purpose.
 	KubeExternalIPSet = "KUBE-EXTERNAL-IP"
 
+	// KubeExternalIPGhostCloudSet is used to store ghostcloud service externl ip + port
+	KubeExternalIPGhostCloudSet = "KUBE-EXTERNAL-GHOSTCLOUD-IP"
+
 	// KubeLoadBalancerSet is used to store service load balancer ingress ip + port, it is the service lb portal.
 	KubeLoadBalancerSet = "KUBE-LOAD-BALANCER"
 
