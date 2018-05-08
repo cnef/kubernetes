@@ -385,7 +385,7 @@ func newServiceInfo(svcPortName proxy.ServicePortName, port *api.ServicePort, se
 		loadBalancerSourceRanges: make([]string, len(service.Spec.LoadBalancerSourceRanges)),
 		onlyNodeLocalEndpoints:   onlyNodeLocalEndpoints,
 	}
-	if len(service.Annotations["ekos.ghostcloud.cn/vips"]) != 0 {
+	if service.Annotations != nil && len(service.Annotations["ekos.ghostcloud.cn/vips"]) != 0 {
 		info.ghostcloudIPs = strings.Split(service.Annotations["ekos.ghostcloud.cn/vips"], ",")
 	}
 
