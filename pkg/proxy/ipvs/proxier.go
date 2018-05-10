@@ -390,11 +390,11 @@ func newServiceInfo(svcPortName proxy.ServicePortName, port *api.ServicePort, se
 	if service.Annotations != nil {
 		if len(service.Annotations["ekos.ghostcloud.cn/lb-vips"]) > 0 {
 			info.ghostcloudLBVIPs = strings.Split(service.Annotations["ekos.ghostcloud.cn/lb-vips"], ",")
-			glog.V(4).Info("detect ghostcloud load banlancer vips: ", info.ghostcloudLBVIPs)
+			glog.V(4).Info("detect ghostcloud load balancer vips: ", info.ghostcloudLBVIPs)
 		}
 		if len(service.Annotations["ekos.ghostcloud.cn/lb-hosts-ips"]) > 0 {
 			info.ghostcloudLBHostsIPs = strings.Split(service.Annotations["ekos.ghostcloud.cn/lb-hosts-ips"], ",")
-			glog.V(4).Info("detect ghostcloud load banlancer hosts ips: ", info.ghostcloudLBVIPs)
+			glog.V(4).Info("detect ghostcloud load balancer hosts ips: ", info.ghostcloudLBVIPs)
 		}
 	}
 
@@ -1192,7 +1192,7 @@ func (proxier *Proxier) syncProxyRules() {
 				serv.Flags |= utilipvs.FlagPersistent
 				serv.Timeout = uint32(svcInfo.stickyMaxAgeSeconds)
 			}
-			// There is check when externalIP is ghostcloud loadbanlancer VIP, then need to bind externalIP to dummy interface, default set parameter `bindAddr` to `false`.
+			// There is check when externalIP is ghostcloud loadbalancer VIP, then need to bind externalIP to dummy interface, default set parameter `bindAddr` to `false`.
 			if err := proxier.syncService(svcNameString, serv, bindAddr); err == nil {
 				activeIPVSServices[serv.String()] = true
 				if err := proxier.syncEndpoint(svcName, svcInfo.onlyNodeLocalEndpoints, serv); err != nil {
@@ -1617,7 +1617,7 @@ func (proxier *Proxier) syncEndpoint(svcPortName proxy.ServicePortName, onlyNode
 	}
 
 	// Begin extentsion by ghostcloud
-	// When sync ghostcloud load banlancer VIP to IPVS, need to add load banlancer host IP as real server
+	// When sync ghostcloud load balancer VIP to IPVS, need to add load balancer host IP as real server
 	lbHosts := []string{}
 	ipIN := func(sets []string, ip string) bool {
 		for _, x := range sets {
@@ -1646,7 +1646,7 @@ func (proxier *Proxier) syncEndpoint(svcPortName proxy.ServicePortName, onlyNode
 	for _, des := range lbHosts {
 		newEndpoints.Insert(des)
 	}
-	//end ghostcloud load banlancer extension code
+	//end ghostcloud load balancer extension code
 
 	if !curEndpoints.Equal(newEndpoints) {
 		// Create new endpoints
