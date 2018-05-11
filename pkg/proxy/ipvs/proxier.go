@@ -319,6 +319,7 @@ type serviceInfo struct {
 	externalIPs              []string
 	ghostcloudLBVIPs         []string
 	ghostcloudLBHostsIPs     []string
+	ghostcloudLBEndpoints    []*endpointsInfo
 	loadBalancerSourceRanges []string
 	onlyNodeLocalEndpoints   bool
 	healthCheckNodePort      int
@@ -378,6 +379,7 @@ func newServiceInfo(svcPortName proxy.ServicePortName, port *api.ServicePort, se
 		externalIPs:              make([]string, len(service.Spec.ExternalIPs)),
 		ghostcloudLBVIPs:         []string{},
 		ghostcloudLBHostsIPs:     []string{},
+		ghostcloudLBEndpoints:    []*endpointsInfo{},
 		loadBalancerSourceRanges: make([]string, len(service.Spec.LoadBalancerSourceRanges)),
 		onlyNodeLocalEndpoints:   onlyNodeLocalEndpoints,
 	}
@@ -1168,6 +1170,8 @@ func (proxier *Proxier) syncProxyRules() {
 
 			// ghostcloud extension
 			var bindAddr = false
+			//clear load balancer endpoints
+			svcInfo.ghostcloudLBEndpoints = svcInfo.ghostcloudLBEndpoints[:0]
 			if svcInfo.onlyNodeLocalEndpoints {
 				ipIN := func(sets []string, ip string) bool {
 					for _, x := range sets {
@@ -1181,6 +1185,7 @@ func (proxier *Proxier) syncProxyRules() {
 				if ipIN(svcInfo.ghostcloudLBVIPs, externalIP) {
 					// add externalIP insert external ghostcloud IPs
 					proxier.externalIPGhostcloudSet.activeEntries.Insert(entry.String())
+					bindAddr = true
 
 					// only the keepalived active node need add load balancer host ip to IPVS as realserver
 					ipInNode := func(ip string) bool {
@@ -1203,7 +1208,7 @@ func (proxier *Proxier) syncProxyRules() {
 						// vip already bind to interface by keepalived, don't need process by kube-proxy
 						bindAddr = false
 						// add ghostcloud load balancer host IPs to endpoints
-						endpoints := proxier.endpointsMap[svcName]
+						endpoints := []*endpointsInfo{}
 						for _, ip := range svcInfo.ghostcloudLBHostsIPs {
 							//exclude current host ip from real server
 							if local, err := utilproxy.IsLocalIP(ip); err != nil {
@@ -1213,7 +1218,7 @@ func (proxier *Proxier) syncProxyRules() {
 								endpoints = append(endpoints, &endpointsInfo{endpoint, true, utilipvs.DstFlagFwdTunnel})
 							}
 						}
-						proxier.endpointsMap[svcName] = endpoints
+						svcInfo.ghostcloudLBEndpoints = endpoints
 					}
 				}
 			}
@@ -1647,15 +1652,17 @@ func (proxier *Proxier) syncEndpoint(svcPortName proxy.ServicePortName, onlyNode
 	for _, des := range curDests {
 		curEndpoints.Insert(des.String())
 	}
-
-	// start extentsion by ghostcloud
-	// When sync ghostcloud load balancer endpoints, need to add load balancer host IP as real server
-	endpointFwdFlags := map[string]utilipvs.ForwardFlags{}
 	for _, eps := range proxier.endpointsMap[svcPortName] {
 		if !onlyNodeLocalEndpoints || onlyNodeLocalEndpoints && eps.isLocal {
 			newEndpoints.Insert(eps.endpoint)
-			endpointFwdFlags[eps.endpoint] = eps.fwdFlags
 		}
+	}
+	// start extentsion by ghostcloud
+	// When sync ghostcloud load balancer endpoints, need to add load balancer host IP as real server
+	endpointFwdFlags := map[string]utilipvs.ForwardFlags{}
+	for _, eps := range proxier.serviceMap[svcPortName].ghostcloudLBEndpoints {
+		newEndpoints.Insert(eps.endpoint)
+		endpointFwdFlags[eps.endpoint] = eps.fwdFlags
 	}
 	//end ghostcloud load balancer extension code
 
