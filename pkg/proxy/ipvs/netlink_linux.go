@@ -20,10 +20,11 @@ package ipvs
 
 import (
 	"fmt"
-	"github.com/vishvananda/netlink"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"net"
 	"syscall"
+
+	"github.com/vishvananda/netlink"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type netlinkHandle struct {
@@ -126,6 +127,38 @@ func (h *netlinkHandle) GetLocalAddresses(filterDev string) (sets.String, error)
 	res := sets.NewString()
 	for _, route := range routes {
 		if route.Src != nil {
+			res.Insert(route.Src.String())
+		}
+	}
+	return res, nil
+}
+
+func (h *netlinkHandle) GetLocalAddressesExclude(filterDev string) (sets.String, error) {
+
+	linkIndex := -1
+	if len(filterDev) != 0 {
+		link, err := h.LinkByName(filterDev)
+		if err != nil {
+			return nil, fmt.Errorf("error get filter device %s, err: %v", filterDev, err)
+		}
+		linkIndex = link.Attrs().Index
+	}
+
+	routeFilter := &netlink.Route{
+		Table:    syscall.RT_TABLE_LOCAL,
+		Type:     syscall.RTN_LOCAL,
+		Protocol: syscall.RTPROT_KERNEL,
+	}
+	filterMask := netlink.RT_FILTER_TABLE | netlink.RT_FILTER_TYPE | netlink.RT_FILTER_PROTOCOL
+
+	routes, err := h.RouteListFiltered(netlink.FAMILY_ALL, routeFilter, filterMask)
+	if err != nil {
+		return nil, fmt.Errorf("error list route table, err: %v", err)
+	}
+	res := sets.NewString()
+
+	for _, route := range routes {
+		if route.Src != nil && route.LinkIndex != linkIndex {
 			res.Insert(route.Src.String())
 		}
 	}

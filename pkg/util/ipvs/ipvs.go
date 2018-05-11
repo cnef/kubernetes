@@ -56,6 +56,9 @@ type VirtualServer struct {
 // ServiceFlags is used to specify session affinity, ip hash etc.
 type ServiceFlags uint32
 
+// ForwardFlags is used to specify how to forward traffic real server
+type ForwardFlags uint32
+
 const (
 	// FlagPersistent specify IPVS service session affinity
 	FlagPersistent = 0x1
@@ -90,7 +93,7 @@ type RealServer struct {
 	Address net.IP
 	Port    uint16
 	Weight  int
-	Flags   ServiceFlags
+	Flags   ForwardFlags
 }
 
 func (rs *RealServer) String() string {

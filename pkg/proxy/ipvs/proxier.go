@@ -178,17 +178,11 @@ type realIPGetter struct {
 }
 
 func (r *realIPGetter) NodeIPs() (ips []net.IP, err error) {
-	//interfaces, err := net.Interfaces()
-	allAddress, err := r.nl.GetLocalAddresses("")
+	// exclude ip address from dummy interface created by IPVS proxier - they are all Cluster IPs.
+	nodeAddress, err := r.nl.GetLocalAddressesExclude(DefaultDummyDevice)
 	if err != nil {
 		return nil, fmt.Errorf("error listing LOCAL type addresses from host, error: %v", err)
 	}
-	dummyAddress, err := r.nl.GetLocalAddresses(DefaultDummyDevice)
-	if err != nil {
-		return nil, fmt.Errorf("error listing LOCAL type addresses from device: %s, error: %v", DefaultDummyDevice, err)
-	}
-	// exclude ip address from dummy interface created by IPVS proxier - they are all Cluster IPs.
-	nodeAddress := allAddress.Difference(dummyAddress)
 	// translate ip string to IP
 	for _, ipStr := range nodeAddress.UnsortedList() {
 		ips = append(ips, net.ParseIP(ipStr))
@@ -518,6 +512,7 @@ func serviceToServiceMap(service *api.Service) proxyServiceMap {
 type endpointsInfo struct {
 	endpoint string // TODO: should be an endpointString type
 	isLocal  bool
+	fwdFlags utilipvs.ForwardFlags
 }
 
 func (e *endpointsInfo) String() string {
@@ -1170,14 +1165,56 @@ func (proxier *Proxier) syncProxyRules() {
 			}
 			// We have to SNAT packets to external IPs.
 			proxier.externalIPSet.activeEntries.Insert(entry.String())
-			// ghostcloud externalIP insert external ghostcloud IPs
-			// and need to bind externalIP to dummy interface
+
+			// ghostcloud extension
 			var bindAddr = false
-			for _, vip := range svcInfo.ghostcloudLBVIPs {
-				if vip == externalIP {
-					bindAddr = true
+			if svcInfo.onlyNodeLocalEndpoints {
+				ipIN := func(sets []string, ip string) bool {
+					for _, x := range sets {
+						if x == ip {
+							return true
+						}
+					}
+					return false
+				}
+
+				if ipIN(svcInfo.ghostcloudLBVIPs, externalIP) {
+					// add externalIP insert external ghostcloud IPs
 					proxier.externalIPGhostcloudSet.activeEntries.Insert(entry.String())
-					break
+
+					// only the keepalived active node need add load balancer host ip to IPVS as realserver
+					ipInNode := func(ip string) bool {
+						nodeIPs, err := proxier.ipGetter.NodeIPs()
+						if err != nil {
+							glog.Errorf("Failed to get node IP, err: %v", err)
+							return false
+						}
+						for _, nodeIP := range nodeIPs {
+							glog.V(3).Infof("ghostcloud check vip is active vip: %s, nodeIP: %s", externalIP, nodeIP.String())
+							if ip == nodeIP.String() {
+								return true
+							}
+						}
+						return false
+					}
+
+					if ipInNode(externalIP) {
+						glog.V(3).Info("ghostcloud add real server to ipvs when vip active")
+						// vip already bind to interface by keepalived, don't need process by kube-proxy
+						bindAddr = false
+						// add ghostcloud load balancer host IPs to endpoints
+						endpoints := proxier.endpointsMap[svcName]
+						for _, ip := range svcInfo.ghostcloudLBHostsIPs {
+							//exclude current host ip from real server
+							if local, err := utilproxy.IsLocalIP(ip); err != nil {
+								glog.Errorf("can't determine if IP is local, assuming not: %v", err)
+							} else if !local {
+								endpoint := net.JoinHostPort(ip, strconv.Itoa(svcInfo.port))
+								endpoints = append(endpoints, &endpointsInfo{endpoint, true, utilipvs.DstFlagFwdTunnel})
+							}
+						}
+						proxier.endpointsMap[svcName] = endpoints
+					}
 				}
 			}
 
@@ -1192,6 +1229,7 @@ func (proxier *Proxier) syncProxyRules() {
 				serv.Flags |= utilipvs.FlagPersistent
 				serv.Timeout = uint32(svcInfo.stickyMaxAgeSeconds)
 			}
+			glog.V(3).Infof("ghostcloud check svcInfo.sessionAffinityType: %s, vs Flags: %d, vs Timeout: %d", svcInfo.sessionAffinityType, serv.Flags, serv.Timeout)
 			// There is check when externalIP is ghostcloud loadbalancer VIP, then need to bind externalIP to dummy interface, default set parameter `bindAddr` to `false`.
 			if err := proxier.syncService(svcNameString, serv, bindAddr); err == nil {
 				activeIPVSServices[serv.String()] = true
@@ -1610,41 +1648,14 @@ func (proxier *Proxier) syncEndpoint(svcPortName proxy.ServicePortName, onlyNode
 		curEndpoints.Insert(des.String())
 	}
 
+	// start extentsion by ghostcloud
+	// When sync ghostcloud load balancer endpoints, need to add load balancer host IP as real server
+	endpointFwdFlags := map[string]utilipvs.ForwardFlags{}
 	for _, eps := range proxier.endpointsMap[svcPortName] {
 		if !onlyNodeLocalEndpoints || onlyNodeLocalEndpoints && eps.isLocal {
 			newEndpoints.Insert(eps.endpoint)
+			endpointFwdFlags[eps.endpoint] = eps.fwdFlags
 		}
-	}
-
-	// Begin extentsion by ghostcloud
-	// When sync ghostcloud load balancer VIP to IPVS, need to add load balancer host IP as real server
-	lbHosts := []string{}
-	ipIN := func(sets []string, ip string) bool {
-		for _, x := range sets {
-			if x == ip {
-				return true
-			}
-		}
-		return false
-	}
-	if onlyNodeLocalEndpoints {
-		vip := vs.Address.String()
-		if svcInfo, ok := proxier.serviceMap[svcPortName]; ok {
-			if ipIN(svcInfo.ghostcloudLBVIPs, vip) {
-				for _, ip := range svcInfo.ghostcloudLBHostsIPs {
-					//exclude current host ip from real server
-					if local, err := utilproxy.IsLocalIP(ip); err != nil {
-						glog.Errorf("can't determine if IP is local, assuming not: %v", err)
-					} else if !local {
-						eps := net.JoinHostPort(ip, strconv.Itoa(int(vs.Port)))
-						lbHosts = append(lbHosts, eps)
-					}
-				}
-			}
-		}
-	}
-	for _, des := range lbHosts {
-		newEndpoints.Insert(des)
 	}
 	//end ghostcloud load balancer extension code
 
@@ -1667,8 +1678,9 @@ func (proxier *Proxier) syncEndpoint(svcPortName proxy.ServicePortName, onlyNode
 				Weight:  1,
 			}
 			// support IPVS dr/tun
-			if ipIN(lbHosts, ep) {
-				newDest.Flags |= utilipvs.DstFlagFwdTunnel
+			glog.V(3).Info("ghostcloud load balancer ep in node: ", ep)
+			if flags, ok := endpointFwdFlags[ep]; ok {
+				newDest.Flags = flags
 			}
 			err = proxier.ipvs.AddRealServer(appliedVirtualServer, newDest)
 			if err != nil {

@@ -33,4 +33,7 @@ type NetLinkHandle interface {
 	// GetLocalAddresses returns all unique local type IP addresses based on filter device interface.  If filter device is not given,
 	// it will list all unique local type addresses.
 	GetLocalAddresses(filterDev string) (sets.String, error)
+	// GetLocalAddresses returns all unique local type IP addresses based on exclude filter device interface.  If filter device is not given,
+	// it will list all unique local type addresses.
+	GetLocalAddressesExclude(filterDev string) (sets.String, error)
 }

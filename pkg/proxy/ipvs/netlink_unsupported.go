@@ -20,6 +20,7 @@ package ipvs
 
 import (
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -52,5 +53,9 @@ func (h *emptyHandle) DeleteDummyDevice(devName string) error {
 }
 
 func (h *emptyHandle) GetLocalAddresses(filterDev string) (sets.String, error) {
+	return nil, fmt.Errorf("netlink is not supported in this platform")
+}
+
+func (h *emptyHandle) GetLocalAddressesExclude(filterDev string) (sets.String, error) {
 	return nil, fmt.Errorf("netlink is not supported in this platform")
 }
