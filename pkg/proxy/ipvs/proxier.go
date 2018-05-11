@@ -1195,7 +1195,6 @@ func (proxier *Proxier) syncProxyRules() {
 							return false
 						}
 						for _, nodeIP := range nodeIPs {
-							glog.V(3).Infof("ghostcloud check vip is active vip: %s, nodeIP: %s", externalIP, nodeIP.String())
 							if ip == nodeIP.String() {
 								return true
 							}
@@ -1204,7 +1203,6 @@ func (proxier *Proxier) syncProxyRules() {
 					}
 
 					if ipInNode(externalIP) {
-						glog.V(3).Info("ghostcloud add real server to ipvs when vip active")
 						// vip already bind to interface by keepalived, don't need process by kube-proxy
 						bindAddr = false
 						// add ghostcloud load balancer host IPs to endpoints
@@ -1234,7 +1232,6 @@ func (proxier *Proxier) syncProxyRules() {
 				serv.Flags |= utilipvs.FlagPersistent
 				serv.Timeout = uint32(svcInfo.stickyMaxAgeSeconds)
 			}
-			glog.V(3).Infof("ghostcloud check svcInfo.sessionAffinityType: %s, vs Flags: %d, vs Timeout: %d", svcInfo.sessionAffinityType, serv.Flags, serv.Timeout)
 			// There is check when externalIP is ghostcloud loadbalancer VIP, then need to bind externalIP to dummy interface, default set parameter `bindAddr` to `false`.
 			if err := proxier.syncService(svcNameString, serv, bindAddr); err == nil {
 				activeIPVSServices[serv.String()] = true
@@ -1685,7 +1682,6 @@ func (proxier *Proxier) syncEndpoint(svcPortName proxy.ServicePortName, onlyNode
 				Weight:  1,
 			}
 			// support IPVS dr/tun
-			glog.V(3).Info("ghostcloud load balancer ep in node: ", ep)
 			if flags, ok := endpointFwdFlags[ep]; ok {
 				newDest.Flags = flags
 			}
