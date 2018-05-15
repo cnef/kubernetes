@@ -1274,7 +1274,7 @@ func (proxier *Proxier) syncProxyRules() {
 		if loadbalancerNode && tunEnabled {
 			// Set the ip_forward sysctl we need for
 			if err := proxier.sysctl.SetSysctl(sysctlRpFilter, 0); err != nil {
-				glog.Errorf("Failed to sync service: %v, err: %v", serv, err)
+				glog.Errorf("can't set sysctl %s: %v", sysctlForward, sysctlRpFilter, err)
 			}
 		}
 
