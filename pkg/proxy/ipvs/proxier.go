@@ -80,6 +80,9 @@ const (
 
 	// DefaultDummyDevice is the default dummy interface where ipvs service address will bind to it.
 	DefaultDummyDevice = "kube-ipvs0"
+
+	// DefaultTunDevice is the default ipip tunning interface.
+	DefaultTunDevice = "tunl0"
 )
 
 var ipvsModules = []string{
@@ -95,6 +98,7 @@ const sysctlRouteLocalnet = "net/ipv4/conf/all/route_localnet"
 const sysctlBridgeCallIPTables = "net/bridge/bridge-nf-call-iptables"
 const sysctlVSConnTrack = "net/ipv4/vs/conntrack"
 const sysctlForward = "net/ipv4/ip_forward"
+const sysctlRpFilter = "net/ipv4/conf/tunl0/rp_filter"
 
 // Proxier is an ipvs based proxy for connections between a localhost:lport
 // and services that provide the actual backends.
@@ -125,6 +129,7 @@ type Proxier struct {
 	ipvs           utilipvs.Interface
 	ipset          utilipset.Interface
 	exec           utilexec.Interface
+	sysctl         utilsysctl.Interface
 	masqueradeAll  bool
 	masqueradeMark string
 	clusterCIDR    string
@@ -281,6 +286,7 @@ func NewProxier(ipt utiliptables.Interface,
 		healthzServer:    healthzServer,
 		ipvs:             ipvs,
 		ipvsScheduler:    scheduler,
+		sysctl:           sysctl,
 		//ipGetter:           &realIPGetter{},
 		ipGetter:                &realIPGetter{nl: NewNetLinkHandle()},
 		iptablesData:            bytes.NewBuffer(nil),
@@ -1125,6 +1131,8 @@ func (proxier *Proxier) syncProxyRules() {
 			glog.Errorf("Failed to sync service: %v, err: %v", serv, err)
 		}
 
+		tunEnabled, _ := proxier.netlinkHandle.ExistsDevice(DefaultTunDevice)
+		loadbalancerNode := false // used to sysctl apply tunl0 rp_filter kernal params
 		// Capture externalIPs.
 		for _, externalIP := range svcInfo.externalIPs {
 			if local, err := utilproxy.IsLocalIP(externalIP); err != nil {
@@ -1212,8 +1220,11 @@ func (proxier *Proxier) syncProxyRules() {
 							if local, err := utilproxy.IsLocalIP(ip); err != nil {
 								glog.Errorf("can't determine if IP is local, assuming not: %v", err)
 							} else if !local {
-								endpoint := net.JoinHostPort(ip, strconv.Itoa(svcInfo.port))
-								endpoints = append(endpoints, &endpointsInfo{endpoint, true, utilipvs.DstFlagFwdTunnel})
+								endpoint := &endpointsInfo{net.JoinHostPort(ip, strconv.Itoa(svcInfo.port)), true, utilipvs.DstFlagFwdTunnel}
+								if !tunEnabled {
+									endpoint.fwdFlags = utilipvs.DstFlagFwdRoute
+								}
+								endpoints = append(endpoints, endpoint)
 							}
 						}
 						svcInfo.ghostcloudLBEndpoints = endpoints
@@ -1235,6 +1246,7 @@ func (proxier *Proxier) syncProxyRules() {
 				if !hasLocalEndpoints {
 					continue
 				}
+				loadbalancerNode = true
 			}
 
 			// ipvs call
@@ -1255,6 +1267,13 @@ func (proxier *Proxier) syncProxyRules() {
 					glog.Errorf("Failed to sync endpoint for service: %v, err: %v", serv, err)
 				}
 			} else {
+				glog.Errorf("Failed to sync service: %v, err: %v", serv, err)
+			}
+		}
+
+		if loadbalancerNode && tunEnabled {
+			// Set the ip_forward sysctl we need for
+			if err := proxier.sysctl.SetSysctl(sysctlRpFilter, 0); err != nil {
 				glog.Errorf("Failed to sync service: %v, err: %v", serv, err)
 			}
 		}

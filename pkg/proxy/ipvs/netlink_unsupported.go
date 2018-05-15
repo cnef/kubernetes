@@ -42,6 +42,11 @@ func (h *emptyHandle) UnbindAddress(address, devName string) error {
 	return fmt.Errorf("netlink not supported for this platform")
 }
 
+// ExistsDevice is part of interface
+func (h *emptyHandle) ExistsDevice(devName string) (bool, error) {
+	return false, fmt.Errorf("netlink is not supported in this platform")
+}
+
 // EnsureDummyDevice is part of interface
 func (h *emptyHandle) EnsureDummyDevice(devName string) (bool, error) {
 	return false, fmt.Errorf("netlink is not supported in this platform")
