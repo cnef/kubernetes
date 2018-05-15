@@ -26,6 +26,8 @@ type NetLinkHandle interface {
 	EnsureAddressBind(address, devName string) (exist bool, err error)
 	// UnbindAddress unbind address from the interface
 	UnbindAddress(address, devName string) error
+	// ExistsDevice checks specify device is exist
+	ExistsDevice(devName string) (bool, error)
 	// EnsureDummyDevice checks if dummy device is exist and, if not, create one. If the dummy device is already exist, return true.
 	EnsureDummyDevice(devName string) (exist bool, err error)
 	// DeleteDummyDevice deletes the given dummy device by name.

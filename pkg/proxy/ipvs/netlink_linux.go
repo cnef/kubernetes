@@ -72,6 +72,12 @@ func (h *netlinkHandle) UnbindAddress(address, devName string) error {
 	return nil
 }
 
+// ExistsDevice is part of interface
+func (h *netlinkHandle) ExistsDevice(devName string) (bool, error) {
+	_, err := h.LinkByName(devName)
+	return false, err == nil
+}
+
 // EnsureDummyDevice is part of interface
 func (h *netlinkHandle) EnsureDummyDevice(devName string) (bool, error) {
 	_, err := h.LinkByName(devName)
