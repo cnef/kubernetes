@@ -1219,6 +1219,22 @@ func (proxier *Proxier) syncProxyRules() {
 						svcInfo.ghostcloudLBEndpoints = endpoints
 					}
 				}
+				// clear ipvs when don't has endpoints, otherwise
+				// host can't access the VIP:PORT because the realserver is empty
+				hasLocalEndpoints := false
+				if len(svcInfo.ghostcloudLBEndpoints) > 0 {
+					hasLocalEndpoints = true
+				} else {
+					for _, eps := range proxier.endpointsMap[svcName] {
+						if eps.isLocal {
+							hasLocalEndpoints = true
+							break
+						}
+					}
+				}
+				if !hasLocalEndpoints {
+					continue
+				}
 			}
 
 			// ipvs call
