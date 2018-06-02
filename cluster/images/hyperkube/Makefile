@@ -21,12 +21,7 @@ REGISTRY?=gcr.io/google-containers
 ARCH?=amd64
 OUT_DIR?=_output
 HYPERKUBE_BIN?=$(OUT_DIR)/dockerized/bin/linux/$(ARCH)/hyperkube
-
-<<<<<<< HEAD
-BASEIMAGE=k8s.gcr.io/debian-hyperkube-base-$(ARCH):0.10
-=======
 BASEIMAGE=gcr.io/google-containers/debian-hyperkube-base-$(ARCH):0.10-ghostcloud
->>>>>>> 28127f8cee... 修改base image
 TEMP_DIR:=$(shell mktemp -d -t hyperkubeXXXXXX)
 
 all: build
