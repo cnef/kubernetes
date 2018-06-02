@@ -14,6 +14,10 @@
 
 FROM BASEIMAGE
 
+RUN echo deb http://mirrors.aliyun.com/debian/ stretch main non-free contrib > /etc/apt/sources.list && \
+    echo deb http://mirrors.aliyun.com/debian/ stretch-updates main non-free contrib >> /etc/apt/sources.list && \
+    echo deb http://mirrors.aliyun.com/debian-security/ stretch/updates main non-free contrib >> /etc/apt/sources.list
+
 RUN echo CACHEBUST>/dev/null && clean-install \
     bash
 
@@ -23,6 +27,7 @@ RUN echo "dash dash/sh boolean false" | debconf-set-selections
 RUN DEBIAN_FRONTEND=noninteractive dpkg-reconfigure dash
 
 RUN echo CACHEBUST>/dev/null && clean-install \
+    apt-transport-https \
     ca-certificates \
     ceph-common \
     cifs-utils \
@@ -31,13 +36,21 @@ RUN echo CACHEBUST>/dev/null && clean-install \
     ebtables \
     ethtool \
     git \
-    glusterfs-client \
+    gnupg \
     iptables \
     jq \
     kmod \
     openssh-client \
     nfs-common \
     socat \
-    util-linux
+    util-linux \
+    wget
+
+RUN wget -O /tmp/rsa.pub https://download.gluster.org/pub/gluster/glusterfs/4.0/rsa.pub && \
+    apt-key add /tmp/rsa.pub && \
+    rm /tmp/rsa.pub -rf && \
+    echo deb [arch=amd64] https://download.gluster.org/pub/gluster/glusterfs/4.0/LATEST/Debian/stretch/amd64/apt stretch main > \
+    /etc/apt/sources.list.d/gluster.list && \
+    echo CACHEBUST>/dev/null && clean-install glusterfs-client=4.0.2-2
 
 COPY cni-bin/bin /opt/cni/bin
