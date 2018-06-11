@@ -33,9 +33,12 @@ RUN echo CACHEBUST>/dev/null && clean-install \
     git \
     glusterfs-client \
     iptables \
+    ipset \
+    ipvsadm \
     jq \
     kmod \
     openssh-client \
+    netbase \
     nfs-common \
     socat \
     util-linux
