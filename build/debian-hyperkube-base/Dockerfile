@@ -38,9 +38,12 @@ RUN echo CACHEBUST>/dev/null && clean-install \
     git \
     gnupg \
     iptables \
+    ipset \
+    ipvsadm \
     jq \
     kmod \
     openssh-client \
+    netbase \
     nfs-common \
     socat \
     util-linux \
