@@ -71,7 +71,11 @@ func DeletePods(kubeClient clientset.Interface, recorder record.EventRecorder, n
 		if pod.Spec.NodeName != nodeName {
 			continue
 		}
-
+		// Ingore deletion of lost node eviction pod
+		if _, ok := pod.Annotations["kubeapps.xyz/node-lost-pod-eviction"]; ok {
+			glog.V(2).Infof("Ignore deletion of cancel eviction pod %v/%v", pod.Namespace, pod.Name)
+			continue
+		}
 		// Set reason and message in the pod object.
 		if _, err = SetPodTerminationReason(kubeClient, &pod, nodeName); err != nil {
 			if apierrors.IsConflict(err) {
