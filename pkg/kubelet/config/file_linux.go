@@ -123,6 +123,7 @@ func (s *sourceFile) processEvent(e *inotify.Event) error {
 			} else if !podExist {
 				return fmt.Errorf("the pod with key %s doesn't exist in cache", objKey)
 			} else {
+				glog.V(1).Infof("AAAAAAAAAAAAAAAA delete: %v/%v", pod.Namespace, pod.Name)
 				return s.store.Delete(pod)
 			}
 		}

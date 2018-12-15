@@ -330,6 +330,11 @@ func NewNodeController(
 					return
 				}
 			}
+			// Ingore deletion of lost node eviction pod
+			if _, ok := pod.Annotations["kubeapps.xyz/node-lost-pod-eviction"]; ok {
+				glog.V(2).Infof("Ignore deletion of cancel eviction pod %v/%v", pod.Namespace, pod.Name)
+				return
+			}
 			if nc.taintManager != nil {
 				nc.taintManager.PodUpdated(pod, nil)
 			}

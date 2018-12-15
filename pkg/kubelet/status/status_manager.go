@@ -484,6 +484,7 @@ func (m *manager) syncPod(uid types.UID, status versionedPodStatus) {
 		deleteOptions := metav1.NewDeleteOptions(0)
 		// Use the pod UID as the precondition for deletion to prevent deleting a newly created pod with the same name and namespace.
 		deleteOptions.Preconditions = metav1.NewUIDPreconditions(string(pod.UID))
+		glog.V(1).Infof("AAAAAAAAAAAAAAAA delete: %v/%v", pod.Namespace, pod.Name)
 		err = m.kubeClient.CoreV1().Pods(pod.Namespace).Delete(pod.Name, deleteOptions)
 		if err != nil {
 			glog.Warningf("Failed to delete status for pod %q: %v", format.Pod(pod), err)

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/golang/glog"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	"k8s.io/api/core/v1"
@@ -220,6 +221,7 @@ func (r realPodControl) ListPods(namespace string, opts metav1.ListOptions) (*v1
 }
 
 func (r realPodControl) DeletePod(namespace string, name string) error {
+	glog.V(1).Infof("AAAAAAAAAAAAAAAA delete: %v/%v", namespace, name)
 	return r.KubeClient.CoreV1().Pods(namespace).Delete(name, nil)
 }
 

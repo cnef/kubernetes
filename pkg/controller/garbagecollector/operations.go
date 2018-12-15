@@ -60,6 +60,7 @@ func (gc *GarbageCollector) deleteObject(item objectReference, policy *metav1.De
 	uid := item.UID
 	preconditions := metav1.Preconditions{UID: &uid}
 	deleteOptions := metav1.DeleteOptions{Preconditions: &preconditions, PropagationPolicy: policy}
+	glog.V(1).Infof("AAAAAAAAAAAAAAAA delete: %v/%v", item.Namespace, item.Name)
 	return client.Resource(resource, item.Namespace).Delete(item.Name, &deleteOptions)
 }
 

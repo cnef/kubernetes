@@ -73,7 +73,11 @@ func DeletePods(kubeClient clientset.Interface, recorder record.EventRecorder, n
 		}
 		// Ingore deletion of lost node eviction pod
 		if _, ok := pod.Annotations["kubeapps.xyz/node-lost-pod-eviction"]; ok {
-			glog.V(2).Infof("Ignore deletion of cancel eviction pod %v/%v", pod.Namespace, pod.Name)
+			glog.V(2).Infof("Ignore deletion of cancel eviction pod %v/%v, Update pod status to Unknown", pod.Namespace, pod.Name)
+			pod.Status.Phase = v1.PodUnknown
+			if _, err = kubeClient.CoreV1().Pods(pod.Namespace).UpdateStatus(&pod); err != nil {
+				glog.Errorf("Update ignore deletion pod %v/%v failed: %v", pod.Namespace, pod.Name, err)
+			}
 			continue
 		}
 		// Set reason and message in the pod object.
@@ -94,7 +98,7 @@ func DeletePods(kubeClient clientset.Interface, recorder record.EventRecorder, n
 		if err == nil { // No error means at least one daemonset was found
 			continue
 		}
-
+		glog.V(1).Infof("AAAAAAAAAAAAAAAA delete: %v/%v", pod.Namespace, pod.Name)
 		glog.V(2).Infof("Starting deletion of pod %v/%v", pod.Namespace, pod.Name)
 		recorder.Eventf(&pod, v1.EventTypeNormal, "NodeControllerEviction", "Marking for deletion Pod %s from Node %s", pod.Name, nodeName)
 		if err := kubeClient.CoreV1().Pods(pod.Namespace).Delete(pod.Name, nil); err != nil {

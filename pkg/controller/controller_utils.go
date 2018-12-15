@@ -587,6 +587,7 @@ func (r RealPodControl) DeletePod(namespace string, podID string, object runtime
 	if err != nil {
 		return fmt.Errorf("object does not have ObjectMeta, %v", err)
 	}
+	glog.V(1).Infof("AAAAAAAAAAAAAAAA delete: %v/%v", namespace, podID)
 	glog.V(2).Infof("Controller %v deleting pod %v/%v", accessor.GetName(), namespace, podID)
 	if err := r.KubeClient.CoreV1().Pods(namespace).Delete(podID, nil); err != nil {
 		r.Recorder.Eventf(object, v1.EventTypeWarning, FailedDeletePodReason, "Error deleting: %v", err)

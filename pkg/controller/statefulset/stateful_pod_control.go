@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/golang/glog"
 	apps "k8s.io/api/apps/v1beta1"
 	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -137,6 +138,7 @@ func (spc *realStatefulPodControl) UpdateStatefulPod(set *apps.StatefulSet, pod 
 }
 
 func (spc *realStatefulPodControl) DeleteStatefulPod(set *apps.StatefulSet, pod *v1.Pod) error {
+	glog.V(1).Infof("AAAAAAAAAAAAAAAA delete: %v/%v", set.Namespace, pod.Name)
 	err := spc.client.CoreV1().Pods(set.Namespace).Delete(pod.Name, nil)
 	spc.recordPodEvent("delete", set, pod, err)
 	return err
