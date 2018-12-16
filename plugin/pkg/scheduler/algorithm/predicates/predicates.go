@@ -757,6 +757,8 @@ func PodMatchNodeSelector(pod *v1.Pod, meta algorithm.PredicateMetadata, nodeInf
 	if podMatchesNodeLabels(pod, node) {
 		return true, nil, nil
 	}
+	glog.V(1).Infof("AAAAAAAAAAAAA nodename: %s, %+v", node.Name, node.Labels)
+	glog.V(1).Infof("AAAAAAAAAAAAA %v nodename: %s, %+v", pod.Name, pod.Spec.NodeName, pod.Spec.NodeSelector)
 	return false, []algorithm.PredicateFailureReason{ErrNodeSelectorNotMatch}, nil
 }
 

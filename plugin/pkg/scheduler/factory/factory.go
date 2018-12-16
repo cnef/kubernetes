@@ -343,6 +343,7 @@ func (c *configFactory) skipPodUpdate(pod *v1.Pod) bool {
 		p.Annotations = nil
 		return p
 	}
+	glog.V(1).Infof("AAAAAAAAAAAAA nodename: %v, %v", assumedPod.Name, pod.Name)
 	assumedPodCopy, podCopy := f(assumedPod), f(pod)
 	if !reflect.DeepEqual(assumedPodCopy, podCopy) {
 		return false
