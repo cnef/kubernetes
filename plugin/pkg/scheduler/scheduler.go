@@ -437,10 +437,12 @@ func (sched *Scheduler) scheduleOne() {
 
 	glog.V(3).Infof("Attempting to schedule pod: %v/%v", pod.Namespace, pod.Name)
 
-	// Ingore deletion of lost node eviction pod
-	if _, ok := pod.Annotations["kubeapps.xyz/node-lost-pod-eviction"]; ok {
-		glog.V(2).Infof("Ignore schedule of cancel eviction pod %v/%v", pod.Namespace, pod.Name)
-		return
+	// Ignore schedule of cancel eviction pod
+	if len(pod.Spec.NodeName) > 0 {
+		if _, ok := pod.Annotations["kubeapps.xyz/node-lost-pod-eviction"]; ok {
+			glog.V(2).Infof("Ignore schedule of cancel eviction pod %v/%v", pod.Namespace, pod.Name)
+			return
+		}
 	}
 
 	// Synchronously attempt to find a fit for the pod.
