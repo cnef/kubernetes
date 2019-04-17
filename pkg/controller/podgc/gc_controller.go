@@ -91,6 +91,13 @@ func (gcc *PodGCController) gc() {
 		glog.Errorf("Error while listing all Pods: %v", err)
 		return
 	}
+
+	for i, pod := range pods {
+		if _, ok := pod.Annotations["kubeapps.xyz/node-lost-pod-eviction"]; ok {
+			pods = append(pods[:i], pods[i+1:]...)
+		}
+	}
+
 	if gcc.terminatedPodThreshold > 0 {
 		gcc.gcTerminated(pods)
 	}
