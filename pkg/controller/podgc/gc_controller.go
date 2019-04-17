@@ -97,7 +97,6 @@ func (gcc *PodGCController) gc() {
 			pods = append(pods[:i], pods[i+1:]...)
 		}
 	}
-
 	if gcc.terminatedPodThreshold > 0 {
 		gcc.gcTerminated(pods)
 	}
