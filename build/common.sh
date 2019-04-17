@@ -454,7 +454,7 @@ function kube::build::build_image() {
   cp build/build-image/Dockerfile "${LOCAL_OUTPUT_BUILD_CONTEXT}/Dockerfile"
   cp build/build-image/rsyncd.sh "${LOCAL_OUTPUT_BUILD_CONTEXT}/"
   dd if=/dev/urandom bs=512 count=1 2>/dev/null | LC_ALL=C tr -dc 'A-Za-z0-9' | dd bs=32 count=1 2>/dev/null > "${LOCAL_OUTPUT_BUILD_CONTEXT}/rsyncd.password"
-  chmod 600 "${LOCAL_OUTPUT_BUILD_CONTEXT}/rsyncd.password"
+  chmod go= "${LOCAL_OUTPUT_BUILD_CONTEXT}/rsyncd.password"
 
   kube::build::update_dockerfile
   kube::build::set_proxy
@@ -688,7 +688,6 @@ function kube::build::stop_rsyncd_container() {
 }
 
 function kube::build::rsync {
-  chmod 600 "${LOCAL_OUTPUT_BUILD_CONTEXT}/rsyncd.password"
   local -a rsync_opts=(
     --archive
     --password-file="${LOCAL_OUTPUT_BUILD_CONTEXT}/rsyncd.password"
