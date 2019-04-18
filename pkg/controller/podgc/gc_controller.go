@@ -92,9 +92,9 @@ func (gcc *PodGCController) gc() {
 		return
 	}
 	skipkvmpods := []*v1.Pod{}
-	for i, pod := range pods {
+	for _, pod := range pods {
 		if _, ok := pod.Annotations["kubeapps.xyz/node-lost-pod-eviction"]; !ok {
-			skipkvmpods = append(skipvmpods, pod)
+			skipkvmpods = append(skipkvmpods, pod)
 		}
 	}
 	if gcc.terminatedPodThreshold > 0 {
