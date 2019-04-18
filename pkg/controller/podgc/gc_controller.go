@@ -91,17 +91,17 @@ func (gcc *PodGCController) gc() {
 		glog.Errorf("Error while listing all Pods: %v", err)
 		return
 	}
-
+	skipkvmpods := []*v1.Pod
 	for i, pod := range pods {
-		if _, ok := pod.Annotations["kubeapps.xyz/node-lost-pod-eviction"]; ok {
-			pods = append(pods[:i], pods[i+1:]...)
+		if _, ok := pod.Annotations["kubeapps.xyz/node-lost-pod-eviction"]; !ok {
+			skipkvmpods = append(skipvmpods, pod)
 		}
 	}
 	if gcc.terminatedPodThreshold > 0 {
-		gcc.gcTerminated(pods)
+		gcc.gcTerminated(skipkvmpods)
 	}
-	gcc.gcOrphaned(pods)
-	gcc.gcUnscheduledTerminating(pods)
+	gcc.gcOrphaned(skipkvmpods)
+	gcc.gcUnscheduledTerminating(skipkvmpods)
 }
 
 func isPodTerminated(pod *v1.Pod) bool {
