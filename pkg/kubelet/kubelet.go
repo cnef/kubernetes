@@ -1381,6 +1381,9 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 
 	if kl.kubeClient != nil {
 		// Start syncing node status immediately, this may set up things the runtime needs to run.
+		glog.Warning("Make sure node status updated to avoid race condition - start")
+		kl.syncNodeStatus()
+		glog.Warning("Make sure node status updated to avoid race condition - done")
 		go wait.Until(kl.syncNodeStatus, kl.nodeStatusUpdateFrequency, wait.NeverStop)
 	}
 	go wait.Until(kl.syncNetworkStatus, 30*time.Second, wait.NeverStop)
